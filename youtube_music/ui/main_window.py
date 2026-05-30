@@ -358,4 +358,5 @@ class MainWindow(QMainWindow):
         if self._rec_worker and self._rec_worker.isRunning():
             self._rec_worker.quit()
             self._rec_worker.wait()
+        self._search_panel.cleanup()
         event.accept()

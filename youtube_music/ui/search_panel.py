@@ -176,6 +176,11 @@ class SearchPanel(QWidget):
         if not query:
             return
 
+        # Cancel previous search if running
+        if self._worker and self._worker.isRunning():
+            self._worker.quit()
+            self._worker.wait()
+
         self._search_btn.setEnabled(False)
         self._list.clear()
         self._item_map.clear()
@@ -225,3 +230,9 @@ class SearchPanel(QWidget):
         self._empty_lbl.show()
         self.status_message.emit(f'Error: {msg}')
         print(f'[SearchPanel] Error: {msg}')  # Debug output
+
+    def cleanup(self):
+        """Stop any running search worker."""
+        if self._worker and self._worker.isRunning():
+            self._worker.quit()
+            self._worker.wait()
