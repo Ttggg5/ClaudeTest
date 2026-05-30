@@ -29,18 +29,18 @@ IS_DARK_MODE = _is_system_dark_mode()
 
 # ── Material Design 3 Color System ────────────────────────────────────────────
 if IS_DARK_MODE:
-    # Dark theme colors
+    # Dark theme colors (YouTube Music style)
     COLOR_PRIMARY = "#FF0000"           # YouTube Red
-    COLOR_SECONDARY = "#FF6B9D"         # Pink (secondary)
-    COLOR_TERTIARY = "#4ECDC4"          # Teal
-    COLOR_BACKGROUND = "#0f0f1a"        # Very dark blue-black
-    COLOR_SURFACE = "#1a1a2e"           # Dark blue
-    COLOR_SURFACE_DIM = "#141429"       # Darker surface
-    COLOR_ON_SURFACE = "#e8e8f0"        # Light text
-    COLOR_ON_SURFACE_VARIANT = "#8088a0"  # Muted text
+    COLOR_SECONDARY = "#E91E63"         # Pink (YouTube Music secondary)
+    COLOR_TERTIARY = "#00BCD4"          # Cyan
+    COLOR_BACKGROUND = "#121212"        # YouTube Music dark background
+    COLOR_SURFACE = "#1E1E1E"           # Elevated surface
+    COLOR_SURFACE_DIM = "#181818"       # Darker surface
+    COLOR_ON_SURFACE = "#FFFFFF"        # White text (more contrast)
+    COLOR_ON_SURFACE_VARIANT = "#B3B3B3"  # Light gray text
     COLOR_ERROR = "#FF5252"             # Red
-    OVERLAY_LIGHT = "rgba(255, 255, 255, 0.08)"
-    OVERLAY_DARK = "rgba(0, 0, 0, 0.2)"
+    OVERLAY_LIGHT = "rgba(255, 255, 255, 0.1)"
+    OVERLAY_DARK = "rgba(0, 0, 0, 0.3)"
 else:
     # Light theme colors
     COLOR_PRIMARY = "#FF0000"           # YouTube Red

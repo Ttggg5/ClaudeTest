@@ -12,18 +12,22 @@ from ui.search_panel import SearchPanel
 from ui.queue_panel import QueuePanel
 from ui.player_bar import PlayerBar
 from ui.settings_dialog import SettingsDialog
+from ui.sidebar import SidebarNavigation
+from ui.artist_profile import ArtistProfile
+from ui.album_grid import AlbumGrid
 
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("YouTube Music Player")
-        self.resize(1100, 700)
-        self.setMinimumSize(800, 550)
+        self.resize(1400, 800)
+        self.setMinimumSize(1000, 600)
 
         self._api: YouTubeAPI | None = None
         self._queue = Queue()
         self._url_worker: URLExtractWorker | None = None
+        self._current_track = None
 
         try:
             self._player = AudioPlayer()
@@ -44,15 +48,15 @@ class MainWindow(QMainWindow):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        # ── top toolbar (Material App Bar) ─────────────────────────────────
+        # ── top toolbar ─────────────────────────────────────────────────────
         toolbar = QWidget()
-        toolbar.setStyleSheet(f"background-color: #1a1a2e; border-bottom: 1px solid #2a2a46;")
+        toolbar.setStyleSheet("background-color: #0a0a0a; border-bottom: 1px solid #282828;")
         toolbar.setFixedHeight(56)
         tl = QHBoxLayout(toolbar)
-        tl.setContentsMargins(20, 0, 16, 0)
+        tl.setContentsMargins(20, 0, 20, 0)
 
         from PyQt6.QtWidgets import QLabel
-        app_name = QLabel("▶  YouTube Music")
+        app_name = QLabel("▶ YouTube Music")
         app_name.setObjectName("appTitle")
         tl.addWidget(app_name)
         tl.addStretch()
@@ -66,16 +70,38 @@ class MainWindow(QMainWindow):
 
         root.addWidget(toolbar)
 
-        # ── main content: queue sidebar + search ───────────────────────────
+        # ── main content: sidebar + center panel ─────────────────────────
         content = QHBoxLayout()
         content.setContentsMargins(0, 0, 0, 0)
         content.setSpacing(0)
 
+        # Left sidebar with navigation and queue tabs
+        self._sidebar = SidebarNavigation()
         self._queue_panel = QueuePanel()
-        content.addWidget(self._queue_panel)
+        self._sidebar.add_queue_tab(self._queue_panel)
+        content.addWidget(self._sidebar)
 
+        # ── center panel: artist profile + search + album grid ────────────
+        center = QVBoxLayout()
+        center.setContentsMargins(0, 0, 0, 0)
+        center.setSpacing(12)
+
+        # Artist profile
+        self._artist_profile = ArtistProfile()
+        center.addWidget(self._artist_profile)
+
+        # Search panel
         self._search_panel = SearchPanel()
-        content.addWidget(self._search_panel, stretch=1)
+        center.addWidget(self._search_panel, stretch=1)
+
+        # Album grid
+        self._album_grid = AlbumGrid()
+        self._album_grid.setMinimumHeight(220)
+        center.addWidget(self._album_grid)
+
+        center_widget = QWidget()
+        center_widget.setLayout(center)
+        content.addWidget(center_widget, stretch=1)
 
         root.addLayout(content, stretch=1)
 
@@ -94,6 +120,9 @@ class MainWindow(QMainWindow):
         self._search_panel.play_now.connect(self._play_track)
         self._search_panel.add_to_queue.connect(self._add_to_queue)
         self._search_panel.status_message.connect(self.statusBar().showMessage)
+
+        # album grid → this window
+        self._album_grid.play_album.connect(self._play_track)
 
         # queue panel → this window
         self._queue_panel.play_index.connect(self._play_at_index)
@@ -124,6 +153,7 @@ class MainWindow(QMainWindow):
         if key:
             self._api = YouTubeAPI(key)
             self._search_panel.set_api(self._api)
+            self._load_recommendations()
         else:
             self.statusBar().showMessage("No API key — open Settings to add one.")
             self._open_settings()
@@ -134,6 +164,7 @@ class MainWindow(QMainWindow):
             key = dlg.get_key()
             self._api = YouTubeAPI(key)
             self._search_panel.set_api(self._api)
+            self._load_recommendations()
             self.statusBar().showMessage("API key saved.")
 
     # ─────────────────────────────────────────────────── playback
@@ -143,9 +174,17 @@ class MainWindow(QMainWindow):
         self._load_and_play(track)
 
     def _load_and_play(self, track: dict):
+        self._current_track = track
         self._player.stop()
         self._player_bar.set_track(track)
         self._player_bar.set_state("loading")
+
+        # Update artist profile
+        self._artist_profile.set_artist(
+            track.get("channel", "Unknown Artist"),
+            track.get("thumbnail_url")
+        )
+
         self.statusBar().showMessage(f"Loading: {track['title']}…")
 
         # cancel any running extraction
@@ -228,9 +267,35 @@ class MainWindow(QMainWindow):
         self._player.stop()
         self._player_bar.set_track(None)
         self._player_bar.set_state("stopped")
+        self._artist_profile.clear()
 
     def _refresh_queue_panel(self, tracks: list[dict]):
         self._queue_panel.refresh(tracks, self._queue.current_index)
+
+    def _load_recommendations(self):
+        """Load trending songs for album grid on startup."""
+        if not self._api:
+            return
+
+        def _fetch():
+            results, _ = self._api.search("trending music", order="viewCount")
+            return results
+
+        from PyQt6.QtCore import QThread, pyqtSignal, QObject
+
+        class _RecWorker(QThread):
+            done = pyqtSignal(list)
+
+            def run(self):
+                try:
+                    results = _fetch()
+                    self.done.emit(results)
+                except Exception:
+                    pass
+
+        worker = _RecWorker()
+        worker.done.connect(self._album_grid.add_albums)
+        worker.start()
 
     # ─────────────────────────────────────────────────── close
 
