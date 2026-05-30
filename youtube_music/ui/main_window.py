@@ -93,7 +93,6 @@ class MainWindow(QMainWindow):
 
         # Explore view
         self._explore_view = ExploreView()
-        self._explore_view.search_category.connect(self._on_explore_category)
         self._center_stack.addWidget(self._explore_view)
 
         # Library view
