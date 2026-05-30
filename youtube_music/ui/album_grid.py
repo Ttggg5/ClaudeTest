@@ -84,7 +84,7 @@ class AlbumGrid(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("card")
-        self.setMinimumHeight(150)  # Reduced for better layout
+        self.setMinimumHeight(60)
         self._pool = QThreadPool.globalInstance()
         self._cards = {}
         self._build()

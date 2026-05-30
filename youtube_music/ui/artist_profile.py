@@ -36,7 +36,7 @@ class ArtistProfile(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("card")
-        self.setMinimumHeight(140)  # Reduced for better layout
+        self.setMinimumHeight(80)
         self._pool = QThreadPool.globalInstance()
         self._build()
 

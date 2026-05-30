@@ -107,8 +107,8 @@ class MainWindow(QMainWindow):
         center_layout.setSpacing(0)
 
         self._search_panel = SearchPanel()
-        center_layout.addWidget(self._search_panel, stretch=1)
-        center_layout.addWidget(self._center_stack, stretch=1)
+        center_layout.addWidget(self._search_panel, stretch=3)
+        center_layout.addWidget(self._center_stack, stretch=0)
 
         content.addWidget(center_panel, stretch=1)
 
