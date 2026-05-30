@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
-    QPushButton, QStatusBar, QMessageBox,
+    QPushButton, QStatusBar, QMessageBox, QStackedWidget,
 )
 from PyQt6.QtCore import Qt
 
@@ -13,8 +13,9 @@ from ui.queue_panel import QueuePanel
 from ui.player_bar import PlayerBar
 from ui.settings_dialog import SettingsDialog
 from ui.sidebar import SidebarNavigation
-from ui.artist_profile import ArtistProfile
-from ui.album_grid import AlbumGrid
+from ui.home_view import HomeView
+from ui.explore_view import ExploreView
+from ui.library_view import LibraryView
 
 
 class MainWindow(QMainWindow):
@@ -82,27 +83,34 @@ class MainWindow(QMainWindow):
         self._sidebar.add_queue_tab(self._queue_panel)
         content.addWidget(self._sidebar)
 
-        # ── center panel: artist profile + search + album grid ────────────
-        center = QVBoxLayout()
-        center.setContentsMargins(0, 0, 0, 0)
-        center.setSpacing(12)
+        # ── center panel: stacked widget for Home/Explore/Library ────────
+        self._center_stack = QStackedWidget()
 
-        # Artist profile
-        self._artist_profile = ArtistProfile()
-        center.addWidget(self._artist_profile)
+        # Home view
+        self._home_view = HomeView()
+        self._home_view.play_track.connect(self._play_track)
+        self._center_stack.addWidget(self._home_view)
 
-        # Search panel
+        # Explore view
+        self._explore_view = ExploreView()
+        self._explore_view.search_category.connect(self._on_explore_category)
+        self._center_stack.addWidget(self._explore_view)
+
+        # Library view
+        self._library_view = LibraryView()
+        self._center_stack.addWidget(self._library_view)
+
+        # Search panel (overlaid when searching, hidden by default)
+        center_panel = QWidget()
+        center_layout = QVBoxLayout(center_panel)
+        center_layout.setContentsMargins(0, 0, 0, 0)
+        center_layout.setSpacing(0)
+
         self._search_panel = SearchPanel()
-        center.addWidget(self._search_panel, stretch=1)
+        center_layout.addWidget(self._search_panel)
+        center_layout.addWidget(self._center_stack, stretch=1)
 
-        # Album grid
-        self._album_grid = AlbumGrid()
-        self._album_grid.setMinimumHeight(220)
-        center.addWidget(self._album_grid)
-
-        center_widget = QWidget()
-        center_widget.setLayout(center)
-        content.addWidget(center_widget, stretch=1)
+        content.addWidget(center_panel, stretch=1)
 
         root.addLayout(content, stretch=1)
 
@@ -117,13 +125,21 @@ class MainWindow(QMainWindow):
     # ─────────────────────────────────────────────────── signals
 
     def _connect_signals(self):
+        # sidebar navigation → view switching
+        self._sidebar.nav_home.connect(self._show_home)
+        self._sidebar.nav_explore.connect(self._show_explore)
+        self._sidebar.nav_library.connect(self._show_library)
+
         # search panel → this window
         self._search_panel.play_now.connect(self._play_track)
         self._search_panel.add_to_queue.connect(self._add_to_queue)
         self._search_panel.status_message.connect(self.statusBar().showMessage)
 
-        # album grid → this window
-        self._album_grid.play_album.connect(self._play_track)
+        # home view → this window
+        self._home_view.play_track.connect(self._play_track)
+
+        # explore view → search for category
+        self._explore_view.search_category.connect(self._on_explore_category)
 
         # queue panel → this window
         self._queue_panel.play_index.connect(self._play_at_index)
@@ -131,8 +147,9 @@ class MainWindow(QMainWindow):
         self._queue_panel.move_track.connect(self._move_in_queue)
         self._queue_panel.clear_queue.connect(self._clear_queue)
 
-        # queue model → queue panel refresh
+        # queue model → queue panel + library view refresh
         self._queue.queue_updated.connect(self._refresh_queue_panel)
+        self._queue.queue_updated.connect(self._refresh_library_view)
 
         # player bar controls → this window
         self._player_bar.play_pause.connect(self._toggle_play_pause)
@@ -145,6 +162,29 @@ class MainWindow(QMainWindow):
         self._player.position_changed.connect(self._player_bar.set_position)
         self._player.duration_changed.connect(self._player_bar.set_duration)
         self._player.state_changed.connect(self._on_player_state)
+
+    # ─────────────────────────────────────────────────── navigation
+
+    def _show_home(self):
+        """Switch to Home view."""
+        self._center_stack.setCurrentWidget(self._home_view)
+        self.statusBar().showMessage("Home - Trending & Recommendations")
+
+    def _show_explore(self):
+        """Switch to Explore view."""
+        self._center_stack.setCurrentWidget(self._explore_view)
+        self.statusBar().showMessage("Explore - Browse by genre and mood")
+
+    def _show_library(self):
+        """Switch to Library view."""
+        self._center_stack.setCurrentWidget(self._library_view)
+        self._refresh_library_view(self._queue.tracks)
+        self.statusBar().showMessage("Library - Your playlists and queue")
+
+    def _on_explore_category(self, category: str):
+        """Handle category search from Explore view."""
+        self._search_panel.search_input.setText(category)
+        self._search_panel._on_search_clicked()
 
     # ─────────────────────────────────────────────────── api init
 
@@ -180,8 +220,8 @@ class MainWindow(QMainWindow):
         self._player_bar.set_track(track)
         self._player_bar.set_state("loading")
 
-        # Update artist profile
-        self._artist_profile.set_artist(
+        # Update artist profile in home view
+        self._home_view.set_artist(
             track.get("channel", "Unknown Artist"),
             track.get("thumbnail_url")
         )
@@ -268,13 +308,17 @@ class MainWindow(QMainWindow):
         self._player.stop()
         self._player_bar.set_track(None)
         self._player_bar.set_state("stopped")
-        self._artist_profile.clear()
+        self._home_view.clear_artist()
 
     def _refresh_queue_panel(self, tracks: list[dict]):
         self._queue_panel.refresh(tracks, self._queue.current_index)
 
+    def _refresh_library_view(self, tracks: list[dict]):
+        """Update library view with current queue."""
+        self._library_view.update_queue(tracks, self._queue.current_index)
+
     def _load_recommendations(self):
-        """Load trending songs for album grid on startup."""
+        """Load trending songs on startup."""
         if not self._api:
             return
 
@@ -300,8 +344,9 @@ class MainWindow(QMainWindow):
                     pass
 
         self._rec_worker = _RecWorker()
-        self._rec_worker.done.connect(self._album_grid.add_albums)
+        self._rec_worker.done.connect(self._home_view.set_recommendations)
         self._rec_worker.start()
+        self._show_home()
 
     # ─────────────────────────────────────────────────── close
 
