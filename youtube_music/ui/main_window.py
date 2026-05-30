@@ -28,6 +28,7 @@ class MainWindow(QMainWindow):
         self._queue = Queue()
         self._url_worker: URLExtractWorker | None = None
         self._current_track = None
+        self._rec_worker = None
 
         try:
             self._player = AudioPlayer()
@@ -277,6 +278,11 @@ class MainWindow(QMainWindow):
         if not self._api:
             return
 
+        # Cancel previous worker if running
+        if self._rec_worker and self._rec_worker.isRunning():
+            self._rec_worker.quit()
+            self._rec_worker.wait()
+
         def _fetch():
             results, _ = self._api.search("trending music", order="viewCount")
             return results
@@ -293,9 +299,9 @@ class MainWindow(QMainWindow):
                 except Exception:
                     pass
 
-        worker = _RecWorker()
-        worker.done.connect(self._album_grid.add_albums)
-        worker.start()
+        self._rec_worker = _RecWorker()
+        self._rec_worker.done.connect(self._album_grid.add_albums)
+        self._rec_worker.start()
 
     # ─────────────────────────────────────────────────── close
 
@@ -304,4 +310,7 @@ class MainWindow(QMainWindow):
         if self._url_worker and self._url_worker.isRunning():
             self._url_worker.terminate()
             self._url_worker.wait()
+        if self._rec_worker and self._rec_worker.isRunning():
+            self._rec_worker.quit()
+            self._rec_worker.wait()
         event.accept()
