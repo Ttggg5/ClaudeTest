@@ -1,0 +1,99 @@
+# ── Python ──────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ── Virtual Environments ─────────────────────────────────────────────────
+venv/
+ENV/
+env/
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ── IDE & Editors ────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.sublime-project
+.sublime-workspace
+*.code-workspace
+*.iml
+
+# ── OS ───────────────────────────────────────────────────────────────────
+Thumbs.db
+.DS_Store
+.AppleDouble
+.LSOverride
+*.lnk
+.directory
+
+# ── Project Specific ────────────────────────────────────────────────────
+youtube_music/config.json
+youtube_music/__pycache__/
+youtube_music/core/__pycache__/
+youtube_music/ui/__pycache__/
+.env
+.env.local
+.env.*.local
+
+# ── Testing & Coverage ──────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# ── Logs ─────────────────────────────────────────────────────────────────
+*.log
+logs/
+*.log.*
+
+# ── Temporary Files ─────────────────────────────────────────────────────
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+.#*
+
+# ── Node (if using npm for anything) ────────────────────────────────────
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# ── Build & Distribution ───────────────────────────────────────────────
+*.zip
+*.tar.gz
+*.rar
+dist/
+build/
+
+# ── Misc ────────────────────────────────────────────────────────────────
+.cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
