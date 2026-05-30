@@ -183,8 +183,8 @@ class MainWindow(QMainWindow):
 
     def _on_explore_category(self, category: str):
         """Handle category search from Explore view."""
-        self._search_panel.search_input.setText(category)
-        self._search_panel._on_search_clicked()
+        self._search_panel._search_input.setText(category)
+        self._search_panel._do_search()
 
     # ─────────────────────────────────────────────────── api init
 
