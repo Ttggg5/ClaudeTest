@@ -15,12 +15,13 @@ class HomeView(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("card")
+        self.setMinimumHeight(100)  # Flexible height
         self._build()
 
     def _build(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(16)
+        layout.setContentsMargins(16, 12, 16, 12)
+        layout.setSpacing(8)
 
         # Title
         title = QLabel("Home")

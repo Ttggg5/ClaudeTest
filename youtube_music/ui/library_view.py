@@ -13,6 +13,7 @@ class LibraryView(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("card")
+        self.setMinimumHeight(200)  # Flexible height
         self._queue_tracks = []
         self._build()
 

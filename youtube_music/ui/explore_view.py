@@ -14,6 +14,7 @@ class ExploreView(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("card")
+        self.setMinimumHeight(200)  # Flexible height
         self._build()
 
     def _build(self):
