@@ -5,10 +5,9 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 
 import config as cfg
-from core.api import YouTubeAPI
+from core.api import YouTubeAPI, SearchWorker
 from core.player import AudioPlayer, URLExtractWorker
 from core.queue import Queue
-from ui.search_panel import SearchPanel
 from ui.queue_panel import QueuePanel
 from ui.player_bar import PlayerBar
 from ui.settings_dialog import SettingsDialog
@@ -30,6 +29,7 @@ class MainWindow(QMainWindow):
         self._url_worker: URLExtractWorker | None = None
         self._current_track = None
         self._rec_worker = None
+        self._search_worker = None
 
         try:
             self._player = AudioPlayer()
@@ -100,17 +100,8 @@ class MainWindow(QMainWindow):
         self._library_view = LibraryView()
         self._center_stack.addWidget(self._library_view)
 
-        # Search panel (overlaid when searching, hidden by default)
-        center_panel = QWidget()
-        center_layout = QVBoxLayout(center_panel)
-        center_layout.setContentsMargins(0, 0, 0, 0)
-        center_layout.setSpacing(0)
-
-        self._search_panel = SearchPanel()
-        center_layout.addWidget(self._search_panel, stretch=3)
-        center_layout.addWidget(self._center_stack, stretch=0)
-
-        content.addWidget(center_panel, stretch=1)
+        # Center panel with stacked views
+        content.addWidget(self._center_stack, stretch=1)
 
         root.addLayout(content, stretch=1)
 
@@ -130,16 +121,12 @@ class MainWindow(QMainWindow):
         self._sidebar.nav_explore.connect(self._show_explore)
         self._sidebar.nav_library.connect(self._show_library)
 
-        # search panel → this window
-        self._search_panel.play_now.connect(self._play_track)
-        self._search_panel.add_to_queue.connect(self._add_to_queue)
-        self._search_panel.status_message.connect(self.statusBar().showMessage)
-
         # home view → this window
         self._home_view.play_track.connect(self._play_track)
 
-        # explore view → search for category
-        self._explore_view.search_category.connect(self._on_explore_category)
+        # explore view → search
+        self._explore_view.search_requested.connect(self._on_explore_search)
+        self._explore_view.play_track.connect(self._play_track)
 
         # queue panel → this window
         self._queue_panel.play_index.connect(self._play_at_index)
@@ -168,12 +155,12 @@ class MainWindow(QMainWindow):
     def _show_home(self):
         """Switch to Home view."""
         self._center_stack.setCurrentWidget(self._home_view)
-        self.statusBar().showMessage("Home - Trending & Recommendations")
+        self.statusBar().showMessage("Home - Recommended Songs")
 
     def _show_explore(self):
         """Switch to Explore view."""
         self._center_stack.setCurrentWidget(self._explore_view)
-        self.statusBar().showMessage("Explore - Browse by genre and mood")
+        self.statusBar().showMessage("Explore - Search, browse genres & moods")
 
     def _show_library(self):
         """Switch to Library view."""
@@ -181,10 +168,26 @@ class MainWindow(QMainWindow):
         self._refresh_library_view(self._queue.tracks)
         self.statusBar().showMessage("Library - Your playlists and queue")
 
-    def _on_explore_category(self, category: str):
-        """Handle category search from Explore view."""
-        self._search_panel._search_input.setText(category)
-        self._search_panel._do_search()
+    def _on_explore_search(self, query: str):
+        """Handle search from Explore view."""
+        if not self._api:
+            self.statusBar().showMessage("Configure API key first")
+            return
+
+        self.statusBar().showMessage(f'Searching for "{query}"...')
+        self._search_worker = SearchWorker(self._api, query)
+        self._search_worker.results_ready.connect(self._on_search_results)
+        self._search_worker.error.connect(self._on_search_error)
+        self._search_worker.start()
+
+    def _on_search_results(self, tracks: list[dict]):
+        """Display search results in Explore view."""
+        self._explore_view.set_results(tracks)
+        self.statusBar().showMessage(f"Found {len(tracks)} results")
+
+    def _on_search_error(self, msg: str):
+        """Handle search error."""
+        self.statusBar().showMessage(f"Search error: {msg}")
 
     # ─────────────────────────────────────────────────── api init
 
@@ -219,13 +222,6 @@ class MainWindow(QMainWindow):
         self._player.stop()
         self._player_bar.set_track(track)
         self._player_bar.set_state("loading")
-
-        # Update artist profile in home view
-        self._home_view.set_artist(
-            track.get("channel", "Unknown Artist"),
-            track.get("thumbnail_url")
-        )
-
         self.statusBar().showMessage(f"Loading: {track['title']}…")
 
         # cancel any running extraction
@@ -308,7 +304,6 @@ class MainWindow(QMainWindow):
         self._player.stop()
         self._player_bar.set_track(None)
         self._player_bar.set_state("stopped")
-        self._home_view.clear_artist()
 
     def _refresh_queue_panel(self, tracks: list[dict]):
         self._queue_panel.refresh(tracks, self._queue.current_index)
@@ -358,5 +353,7 @@ class MainWindow(QMainWindow):
         if self._rec_worker and self._rec_worker.isRunning():
             self._rec_worker.quit()
             self._rec_worker.wait()
-        self._search_panel.cleanup()
+        if self._search_worker and self._search_worker.isRunning():
+            self._search_worker.quit()
+            self._search_worker.wait()
         event.accept()

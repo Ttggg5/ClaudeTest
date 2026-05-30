@@ -1,38 +1,97 @@
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QGridLayout,
-    QPushButton
+    QPushButton, QLineEdit, QListWidget, QListWidgetItem
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QObject
+from PyQt6.QtCore import Qt, pyqtSignal, QSize
+from PyQt6.QtGui import QPixmap
 
 
 class ExploreView(QFrame):
-    """Explore view with music categories and discovery."""
+    """Explore view with search, categories, and mood browsing."""
 
-    search_category = pyqtSignal(str)  # Emits category name to search
+    search_requested = pyqtSignal(str)  # Emits search query
     play_track = pyqtSignal(dict)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("card")
+        self.setMinimumHeight(200)
+        self._tracks = {}
         self._build()
 
     def _build(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(24)
+        layout.setContentsMargins(16, 12, 16, 12)
+        layout.setSpacing(12)
 
-        # Title
-        title = QLabel("Explore")
-        title.setStyleSheet("font-size: 28px; font-weight: 600; color: #FFFFFF;")
-        layout.addWidget(title)
+        # ── Search Bar ─────────────────────────────────────────────────
+        search_frame = QFrame()
+        search_frame.setStyleSheet("background-color: #1E1E1E; border-radius: 8px;")
+        search_layout = QHBoxLayout(search_frame)
+        search_layout.setContentsMargins(12, 8, 12, 8)
+        search_layout.setSpacing(8)
 
-        # Categories section
-        cat_header = QLabel("Browse By Genre")
-        cat_header.setStyleSheet("font-size: 16px; font-weight: 600; color: #FFFFFF;")
-        layout.addWidget(cat_header)
+        search_label = QLabel("🔍")
+        search_label.setStyleSheet("font-size: 18px;")
+        search_layout.addWidget(search_label)
 
-        # Genre grid
-        categories = [
+        self._search_input = QLineEdit()
+        self._search_input.setPlaceholderText("Search songs, artists, albums...")
+        self._search_input.setStyleSheet("""
+            QLineEdit {
+                background-color: transparent;
+                border: none;
+                color: #FFFFFF;
+                font-size: 14px;
+                padding: 4px;
+            }
+            QLineEdit::placeholder {
+                color: #666666;
+            }
+        """)
+        self._search_input.returnPressed.connect(self._on_search)
+        search_layout.addWidget(self._search_input)
+
+        search_btn = QPushButton("Search")
+        search_btn.setObjectName("smallBtn")
+        search_btn.setFixedWidth(80)
+        search_btn.clicked.connect(self._on_search)
+        search_layout.addWidget(search_btn)
+
+        layout.addWidget(search_frame)
+
+        # ── Results List ───────────────────────────────────────────────
+        results_header = QLabel("Search Results")
+        results_header.setStyleSheet("font-size: 12px; font-weight: 600; color: #B3B3B3;")
+        layout.addWidget(results_header)
+
+        self._results_list = QListWidget()
+        self._results_list.setStyleSheet("""
+            QListWidget {
+                background-color: transparent;
+                border: none;
+            }
+            QListWidget::item {
+                background-color: #1E1E1E;
+                border-radius: 4px;
+                padding: 6px;
+                margin: 2px 0;
+                color: #FFFFFF;
+            }
+            QListWidget::item:hover {
+                background-color: #282828;
+            }
+        """)
+        self._results_list.itemClicked.connect(self._on_result_clicked)
+        self._results_list.setMaximumHeight(150)
+        layout.addWidget(self._results_list)
+
+        # ── Browse Genres ──────────────────────────────────────────────
+        genre_header = QLabel("Browse By Genre")
+        genre_header.setStyleSheet("font-size: 12px; font-weight: 600; color: #B3B3B3; margin-top: 4px;")
+        layout.addWidget(genre_header)
+
+        genres = [
             ("🎸 Rock", "rock"),
             ("🎹 Pop", "pop"),
             ("🎤 Hip Hop", "hip hop"),
@@ -47,20 +106,20 @@ class ExploreView(QFrame):
             ("🎶 Ambient", "ambient"),
         ]
 
-        grid = QGridLayout()
-        grid.setSpacing(12)
+        genre_grid = QGridLayout()
+        genre_grid.setSpacing(8)
 
-        for idx, (label, category) in enumerate(categories):
-            btn = self._create_category_btn(label, category)
+        for idx, (label, query) in enumerate(genres):
+            btn = self._create_category_btn(label, query)
             row = idx // 3
             col = idx % 3
-            grid.addWidget(btn, row, col)
+            genre_grid.addWidget(btn, row, col)
 
-        layout.addLayout(grid)
+        layout.addLayout(genre_grid)
 
-        # Mood section
+        # ── Browse Moods ───────────────────────────────────────────────
         mood_header = QLabel("Listen By Mood")
-        mood_header.setStyleSheet("font-size: 16px; font-weight: 600; color: #FFFFFF;")
+        mood_header.setStyleSheet("font-size: 12px; font-weight: 600; color: #B3B3B3; margin-top: 4px;")
         layout.addWidget(mood_header)
 
         moods = [
@@ -73,28 +132,28 @@ class ExploreView(QFrame):
         ]
 
         mood_grid = QGridLayout()
-        mood_grid.setSpacing(12)
+        mood_grid.setSpacing(8)
 
-        for idx, (label, mood) in enumerate(moods):
-            btn = self._create_category_btn(label, mood)
+        for idx, (label, query) in enumerate(moods):
+            btn = self._create_category_btn(label, query)
             mood_grid.addWidget(btn, 0, idx)
 
         layout.addLayout(mood_grid)
         layout.addStretch()
 
-    def _create_category_btn(self, label: str, category: str):
+    def _create_category_btn(self, label: str, query: str):
         """Create a category button."""
         btn = QPushButton(label)
         btn.setStyleSheet("""
             QPushButton {
                 background-color: #1E1E1E;
                 border: 1px solid #282828;
-                border-radius: 8px;
-                padding: 16px;
+                border-radius: 6px;
+                padding: 10px;
                 color: #FFFFFF;
-                font-size: 14px;
+                font-size: 12px;
                 font-weight: 500;
-                min-height: 60px;
+                min-height: 40px;
             }
             QPushButton:hover {
                 background-color: #282828;
@@ -104,5 +163,52 @@ class ExploreView(QFrame):
                 background-color: #1a1a1a;
             }
         """)
-        btn.clicked.connect(lambda: self.search_category.emit(category))
+        btn.clicked.connect(lambda: self._search_and_browse(query))
         return btn
+
+    def _on_search(self):
+        """Handle search button click."""
+        query = self._search_input.text().strip()
+        if query:
+            self.search_requested.emit(query)
+
+    def _search_and_browse(self, query: str):
+        """Search for a category/mood."""
+        self._search_input.setText(query)
+        self.search_requested.emit(query)
+
+    def set_results(self, tracks: list[dict]):
+        """Display search results."""
+        self._results_list.clear()
+        self._tracks.clear()
+
+        if not tracks:
+            item = QListWidgetItem("No results found")
+            item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsSelectable)
+            self._results_list.addItem(item)
+            return
+
+        for idx, track in enumerate(tracks[:15]):  # Show top 15 results
+            video_id = track.get("videoId")
+            title = track.get("title", "Unknown")
+            artist = track.get("channel", "Unknown")
+
+            text = f"{title}\n    {artist}"
+            item = QListWidgetItem(text)
+            item.setData(1001, track)  # Store track data
+            self._results_list.addItem(item)
+            self._tracks[video_id] = track
+
+    def _on_result_clicked(self, item: QListWidgetItem):
+        """Play clicked track."""
+        track = item.data(1001)
+        if track:
+            self.play_track.emit(track)
+
+    def get_search_text(self):
+        """Get current search text."""
+        return self._search_input.text()
+
+    def set_search_text(self, text: str):
+        """Set search text."""
+        self._search_input.setText(text)
