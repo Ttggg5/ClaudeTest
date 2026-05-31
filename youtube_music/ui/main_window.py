@@ -33,6 +33,9 @@ class MainWindow(QMainWindow):
         self._search_query = None
         self._search_next_token = None
         self._loading_more = False
+        # home (trending) pagination
+        self._home_next_token = None
+        self._home_loading = False
 
         try:
             self._player = AudioPlayer()
@@ -125,6 +128,7 @@ class MainWindow(QMainWindow):
 
         # home view → this window
         self._home_view.play_track.connect(self._play_track)
+        self._home_view.load_more.connect(self._on_home_load_more)
 
         # explore view → search
         self._explore_view.search_requested.connect(self._on_explore_search)
@@ -349,7 +353,7 @@ class MainWindow(QMainWindow):
         self._library_view.update_queue(tracks, self._queue.current_index)
 
     def _load_recommendations(self):
-        """Search trending songs and show them on the home screen."""
+        """Search trending songs and show them on the home screen (first page)."""
         if not self._api:
             return
 
@@ -357,6 +361,9 @@ class MainWindow(QMainWindow):
         if self._rec_worker and self._rec_worker.isRunning():
             self._rec_worker.quit()
             self._rec_worker.wait()
+
+        self._home_next_token = None
+        self._home_loading = False
 
         self.statusBar().showMessage("Loading trending songs…")
         self._rec_worker = SearchWorker(self._api, "trending music")
@@ -367,9 +374,33 @@ class MainWindow(QMainWindow):
         self._rec_worker.start()
         self._show_home()
 
+    def _on_home_load_more(self):
+        """Load the next page of trending songs (infinite scroll)."""
+        if not self._api or not self._home_next_token or self._home_loading:
+            return
+        if self._rec_worker and self._rec_worker.isRunning():
+            return
+
+        self._home_loading = True
+        self.statusBar().showMessage("Loading more trending songs…")
+        self._rec_worker = SearchWorker(
+            self._api, "trending music", page_token=self._home_next_token
+        )
+        self._rec_worker.results_ready.connect(self._on_more_recommendations)
+        self._rec_worker.error.connect(
+            lambda msg: self.statusBar().showMessage(f"Couldn't load more: {msg}")
+        )
+        self._rec_worker.start()
+
     def _on_recommendations_ready(self, tracks: list[dict], next_token=None):
-        self._home_view.set_recommendations(tracks)
+        self._home_next_token = next_token
+        self._home_view.set_recommendations(tracks, has_more=bool(next_token))
         self.statusBar().showMessage(f"Showing {len(tracks)} trending songs")
+
+    def _on_more_recommendations(self, tracks: list[dict], next_token=None):
+        self._home_next_token = next_token
+        self._home_loading = False
+        self._home_view.append_recommendations(tracks, has_more=bool(next_token))
 
     # ─────────────────────────────────────────────────── close
 

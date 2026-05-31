@@ -1,35 +1,10 @@
-import requests
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QGridLayout,
-    QPushButton, QLineEdit, QListWidget, QListWidgetItem
+    QPushButton, QLineEdit
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QSize, QRunnable, QThreadPool, QObject, QEvent
-from PyQt6.QtGui import QPixmap, QIcon
+from PyQt6.QtCore import pyqtSignal, QEvent
 
-
-class _ThumbSignals(QObject):
-    loaded = pyqtSignal(str, QPixmap)
-
-
-class _ThumbLoader(QRunnable):
-    def __init__(self, video_id: str, url: str):
-        super().__init__()
-        self.video_id = video_id
-        self.url = url
-        self.signals = _ThumbSignals()
-
-    def run(self):
-        try:
-            data = requests.get(self.url, timeout=8).content
-            px = QPixmap()
-            px.loadFromData(data)
-            if not px.isNull():
-                self.signals.loaded.emit(self.video_id, px.scaled(
-                    80, 80, Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation,
-                ))
-        except Exception:
-            pass
+from ui.song_list import SongList
 
 
 class ExploreView(QFrame):
@@ -43,10 +18,6 @@ class ExploreView(QFrame):
         super().__init__(parent)
         self.setObjectName("card")
         self.setMinimumHeight(200)
-        self._tracks = {}
-        self._items = {}
-        self._has_more = False
-        self._pool = QThreadPool.globalInstance()
         self._build()
 
     def _build(self):
@@ -91,31 +62,14 @@ class ExploreView(QFrame):
 
         layout.addWidget(search_frame)
 
-        # ── Results List ───────────────────────────────────────────────
+        # ── Results List (shared SongList widget) ──────────────────────
         results_header = QLabel("Search Results")
         results_header.setStyleSheet("font-size: 12px; font-weight: 600; color: #B3B3B3;")
         layout.addWidget(results_header)
 
-        self._results_list = QListWidget()
-        self._results_list.setStyleSheet("""
-            QListWidget {
-                background-color: transparent;
-                border: none;
-            }
-            QListWidget::item {
-                background-color: #1E1E1E;
-                border-radius: 4px;
-                padding: 6px;
-                margin: 2px 0;
-                color: #FFFFFF;
-            }
-            QListWidget::item:hover {
-                background-color: #282828;
-            }
-        """)
-        self._results_list.setIconSize(QSize(80, 80))
-        self._results_list.itemClicked.connect(self._on_result_clicked)
-        self._results_list.verticalScrollBar().valueChanged.connect(self._on_scroll)
+        self._results_list = SongList()
+        self._results_list.play_track.connect(self.play_track)
+        self._results_list.load_more.connect(self.load_more)
         layout.addWidget(self._results_list, stretch=1)
 
         # ── Browse panel (genres + moods) — floating overlay on focus ──
@@ -257,64 +211,11 @@ class ExploreView(QFrame):
 
     def set_results(self, tracks: list[dict], has_more: bool = False):
         """Display a fresh set of search results (first page)."""
-        self._results_list.clear()
-        self._tracks.clear()
-        self._items.clear()
-        self._has_more = has_more
-
-        if not tracks:
-            item = QListWidgetItem("No results found")
-            item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsSelectable)
-            self._results_list.addItem(item)
-            return
-
-        self._append_tracks(tracks)
+        self._results_list.set_results(tracks, has_more)
 
     def append_results(self, tracks: list[dict], has_more: bool = False):
         """Append the next page of results (infinite scroll)."""
-        self._has_more = has_more
-        self._append_tracks(tracks)
-
-    def _append_tracks(self, tracks: list[dict]):
-        for track in tracks:
-            video_id = track.get("video_id")
-            title = track.get("title", "Unknown")
-            artist = track.get("channel", "Unknown")
-            thumbnail = track.get("thumbnail_url")
-
-            text = f"{title}\n    {artist}"
-            item = QListWidgetItem(text)
-            item.setData(1001, track)  # Store track data
-            self._results_list.addItem(item)
-            self._tracks[video_id] = track
-            self._items[video_id] = item
-
-            # Load thumbnail
-            if thumbnail:
-                loader = _ThumbLoader(video_id, thumbnail)
-                loader.signals.loaded.connect(self._on_thumb_loaded)
-                self._pool.start(loader)
-
-    def _on_scroll(self, value: int):
-        """Request more results when scrolled near the bottom."""
-        if not self._has_more:
-            return
-        bar = self._results_list.verticalScrollBar()
-        if bar.maximum() > 0 and value >= bar.maximum() * 0.9:
-            self._has_more = False  # guard against repeat emits until next page arrives
-            self.load_more.emit()
-
-    def _on_thumb_loaded(self, video_id: str, px: QPixmap):
-        """Set the loaded thumbnail on the matching result item."""
-        item = self._items.get(video_id)
-        if item is not None:
-            item.setIcon(QIcon(px))
-
-    def _on_result_clicked(self, item: QListWidgetItem):
-        """Play clicked track."""
-        track = item.data(1001)
-        if track:
-            self.play_track.emit(track)
+        self._results_list.append_results(tracks, has_more)
 
     def get_search_text(self):
         """Get current search text."""
