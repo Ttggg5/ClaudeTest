@@ -191,10 +191,9 @@ QPushButton#playBtn {{
 }}
 QPushButton#playBtn:hover {{
     background-color: {COLOR_SECONDARY};
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
 }}
 QPushButton#playBtn:pressed {{
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    background-color: {COLOR_PRIMARY};
 }}
 
 /* ── small button ──────────────────────────────────────────────────────── */

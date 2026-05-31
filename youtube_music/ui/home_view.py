@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (
     QListWidgetItem, QPushButton
 )
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QPixmap
+from PyQt6.QtGui import QPixmap, QIcon
 import requests
 from PyQt6.QtCore import QRunnable, QThreadPool, QObject
 
@@ -112,7 +112,7 @@ class HomeView(QFrame):
         """Update item with thumbnail."""
         if video_id in self._tracks:
             item, track = self._tracks[video_id]
-            item.setIcon(px)
+            item.setIcon(QIcon(px))
 
     def clear(self):
         """Clear recommendations."""
