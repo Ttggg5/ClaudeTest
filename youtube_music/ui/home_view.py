@@ -30,6 +30,10 @@ class HomeView(QFrame):
         self._song_list.load_more.connect(self.load_more)
         layout.addWidget(self._song_list, stretch=1)
 
+    def set_loading(self, loading: bool, text: str | None = None):
+        """Show/hide the loading spinner over the song list."""
+        self._song_list.set_loading(loading, text)
+
     def set_recommendations(self, tracks: list[dict], has_more: bool = False):
         """Load the first page of trending songs."""
         self._song_list.set_results(tracks, has_more)

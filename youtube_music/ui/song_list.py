@@ -3,6 +3,8 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QListWidget, QListWidgetItem
 from PyQt6.QtCore import Qt, pyqtSignal, QSize, QRunnable, QThreadPool, QObject
 from PyQt6.QtGui import QPixmap, QIcon
 
+from ui.loading_spinner import LoadingSpinner
+
 
 class _ThumbSignals(QObject):
     loaded = pyqtSignal(str, QPixmap)
@@ -78,10 +80,27 @@ class SongList(QWidget):
         self._list.verticalScrollBar().valueChanged.connect(self._on_scroll)
         layout.addWidget(self._list)
 
+        # Loading spinner overlay (centered, hidden by default)
+        self._spinner = LoadingSpinner("Loading songs…", self)
+        self._spinner.setStyleSheet("background-color: rgba(18, 18, 18, 180); border-radius: 8px;")
+        self._spinner.hide()
+
     # ------------------------------------------------------------------ public
+
+    def set_loading(self, loading: bool, text: str | None = None):
+        """Show or hide the centered loading spinner overlay."""
+        if loading:
+            if text:
+                self._spinner.set_text(text)
+            self._position_spinner()
+            self._spinner.show()
+            self._spinner.raise_()
+        else:
+            self._spinner.hide()
 
     def set_results(self, tracks: list[dict], has_more: bool = False):
         """Replace the list with a fresh page of tracks."""
+        self.set_loading(False)
         self._list.clear()
         self._tracks.clear()
         self._items.clear()
@@ -98,6 +117,7 @@ class SongList(QWidget):
 
     def append_results(self, tracks: list[dict], has_more: bool = False):
         """Append the next page of tracks (infinite scroll)."""
+        self.set_loading(False)
         self._has_more = has_more
         self._append(tracks)
 
@@ -151,3 +171,16 @@ class SongList(QWidget):
         track = item.data(self._TRACK_ROLE)
         if track:
             self.play_track.emit(track)
+
+    def _position_spinner(self):
+        """Center the spinner overlay over the list."""
+        size = self._spinner.sizeHint()
+        w, h = size.width(), size.height()
+        x = (self.width() - w) // 2
+        y = (self.height() - h) // 2
+        self._spinner.setGeometry(x, y, w, h)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self._spinner.isVisible():
+            self._position_spinner()

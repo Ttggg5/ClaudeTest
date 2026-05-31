@@ -8,10 +8,12 @@ from PyQt6.QtGui import QFont
 class LoadingSpinner(QWidget):
     """Rotating loading spinner with text."""
 
+    _FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+
     def __init__(self, text: str = "Loading...", parent=None):
         super().__init__(parent)
         self.setMinimumSize(100, 100)
-        self._rotation = 0
+        self._frame = 0
         self._text = text
         self._build()
         self._start_animation()
@@ -23,7 +25,7 @@ class LoadingSpinner(QWidget):
         layout.setSpacing(8)
 
         # Spinner icon
-        self._spinner = QLabel("⟳")
+        self._spinner = QLabel(self._FRAMES[0])
         self._spinner.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._spinner.setStyleSheet("font-size: 40px; color: #FF0000;")
         layout.addWidget(self._spinner)
@@ -41,12 +43,9 @@ class LoadingSpinner(QWidget):
         self._timer.start(50)  # Update every 50ms for smooth rotation
 
     def _rotate(self):
-        """Rotate the spinner."""
-        self._rotation = (self._rotation + 15) % 360
-        transform = f"transform: rotate({self._rotation}deg);"
-        self._spinner.setStyleSheet(
-            f"font-size: 40px; color: #FF0000; {transform}"
-        )
+        """Advance to the next spinner frame."""
+        self._frame = (self._frame + 1) % len(self._FRAMES)
+        self._spinner.setText(self._FRAMES[self._frame])
 
     def set_text(self, text: str):
         """Update the loading text."""

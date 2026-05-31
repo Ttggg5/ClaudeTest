@@ -85,7 +85,7 @@ class ExploreView(QFrame):
 
         # Browse Genres
         genre_header = QLabel("Browse By Genre")
-        genre_header.setStyleSheet("font-size: 12px; font-weight: 600; color: #B3B3B3; margin-top: 4px;")
+        genre_header.setStyleSheet("font-size: 12px; font-weight: 600; color: #B3B3B3; margin-top: 4px; background-color: #1a1a1a;")
         browse_layout.addWidget(genre_header)
 
         genres = [
@@ -116,7 +116,7 @@ class ExploreView(QFrame):
 
         # Browse Moods
         mood_header = QLabel("Listen By Mood")
-        mood_header.setStyleSheet("font-size: 12px; font-weight: 600; color: #B3B3B3; margin-top: 4px;")
+        mood_header.setStyleSheet("font-size: 12px; font-weight: 600; color: #B3B3B3; margin-top: 4px; background-color: #1a1a1a;")
         browse_layout.addWidget(mood_header)
 
         moods = [
@@ -146,7 +146,7 @@ class ExploreView(QFrame):
         btn = QPushButton(label)
         btn.setStyleSheet("""
             QPushButton {
-                background-color: #1E1E1E;
+                background-color: #1a1a1a;
                 border: 1px solid #282828;
                 border-radius: 6px;
                 padding: 10px;
@@ -208,6 +208,10 @@ class ExploreView(QFrame):
         self._search_input.setText(query)
         self._browse_panel.hide()
         self.search_requested.emit(query)
+
+    def set_loading(self, loading: bool, text: str | None = None):
+        """Show/hide the loading spinner over the results list."""
+        self._results_list.set_loading(loading, text)
 
     def set_results(self, tracks: list[dict], has_more: bool = False):
         """Display a fresh set of search results (first page)."""

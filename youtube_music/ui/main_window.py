@@ -191,6 +191,7 @@ class MainWindow(QMainWindow):
         self._loading_more = False
 
         self.statusBar().showMessage(f'Searching for "{query}"...')
+        self._explore_view.set_loading(True, f'Searching for "{query}"…')
         self._search_worker = SearchWorker(self._api, query)
         self._search_worker.results_ready.connect(self._on_search_results)
         self._search_worker.error.connect(self._on_search_error)
@@ -207,6 +208,7 @@ class MainWindow(QMainWindow):
 
         self._loading_more = True
         self.statusBar().showMessage("Loading more results…")
+        self._explore_view.set_loading(True, "Loading more…")
         self._search_worker = SearchWorker(
             self._api, self._search_query, page_token=self._search_next_token
         )
@@ -229,6 +231,7 @@ class MainWindow(QMainWindow):
     def _on_search_error(self, msg: str):
         """Handle search error."""
         self._loading_more = False
+        self._explore_view.set_loading(False)
         self.statusBar().showMessage(f"Search error: {msg}")
 
     # ─────────────────────────────────────────────────── api init
@@ -366,13 +369,17 @@ class MainWindow(QMainWindow):
         self._home_loading = False
 
         self.statusBar().showMessage("Loading trending songs…")
+        self._home_view.set_loading(True, "Loading trending songs…")
         self._rec_worker = SearchWorker(self._api, "trending music")
         self._rec_worker.results_ready.connect(self._on_recommendations_ready)
-        self._rec_worker.error.connect(
-            lambda msg: self.statusBar().showMessage(f"Couldn't load trending: {msg}")
-        )
+        self._rec_worker.error.connect(self._on_recommendations_error)
         self._rec_worker.start()
         self._show_home()
+
+    def _on_recommendations_error(self, msg: str):
+        self._home_loading = False
+        self._home_view.set_loading(False)
+        self.statusBar().showMessage(f"Couldn't load trending: {msg}")
 
     def _on_home_load_more(self):
         """Load the next page of trending songs (infinite scroll)."""
@@ -383,13 +390,12 @@ class MainWindow(QMainWindow):
 
         self._home_loading = True
         self.statusBar().showMessage("Loading more trending songs…")
+        self._home_view.set_loading(True, "Loading more…")
         self._rec_worker = SearchWorker(
             self._api, "trending music", page_token=self._home_next_token
         )
         self._rec_worker.results_ready.connect(self._on_more_recommendations)
-        self._rec_worker.error.connect(
-            lambda msg: self.statusBar().showMessage(f"Couldn't load more: {msg}")
-        )
+        self._rec_worker.error.connect(self._on_recommendations_error)
         self._rec_worker.start()
 
     def _on_recommendations_ready(self, tracks: list[dict], next_token=None):
