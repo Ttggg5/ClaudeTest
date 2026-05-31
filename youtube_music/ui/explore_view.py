@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QGridLayout,
     QPushButton, QLineEdit, QListWidget, QListWidgetItem
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QSize, QRunnable, QThreadPool, QObject
+from PyQt6.QtCore import Qt, pyqtSignal, QSize, QRunnable, QThreadPool, QObject, QEvent
 from PyQt6.QtGui import QPixmap, QIcon
 
 
@@ -115,10 +115,16 @@ class ExploreView(QFrame):
         self._results_list.setMaximumHeight(320)
         layout.addWidget(self._results_list)
 
-        # ── Browse Genres ──────────────────────────────────────────────
+        # ── Browse panel (genres + moods) — only visible on search focus ──
+        self._browse_panel = QWidget()
+        browse_layout = QVBoxLayout(self._browse_panel)
+        browse_layout.setContentsMargins(0, 0, 0, 0)
+        browse_layout.setSpacing(12)
+
+        # Browse Genres
         genre_header = QLabel("Browse By Genre")
         genre_header.setStyleSheet("font-size: 12px; font-weight: 600; color: #B3B3B3; margin-top: 4px;")
-        layout.addWidget(genre_header)
+        browse_layout.addWidget(genre_header)
 
         genres = [
             ("🎸 Rock", "rock"),
@@ -144,12 +150,12 @@ class ExploreView(QFrame):
             col = idx % 3
             genre_grid.addWidget(btn, row, col)
 
-        layout.addLayout(genre_grid)
+        browse_layout.addLayout(genre_grid)
 
-        # ── Browse Moods ───────────────────────────────────────────────
+        # Browse Moods
         mood_header = QLabel("Listen By Mood")
         mood_header.setStyleSheet("font-size: 12px; font-weight: 600; color: #B3B3B3; margin-top: 4px;")
-        layout.addWidget(mood_header)
+        browse_layout.addWidget(mood_header)
 
         moods = [
             ("😊 Happy", "happy upbeat"),
@@ -167,8 +173,14 @@ class ExploreView(QFrame):
             btn = self._create_category_btn(label, query)
             mood_grid.addWidget(btn, 0, idx)
 
-        layout.addLayout(mood_grid)
+        browse_layout.addLayout(mood_grid)
+
+        layout.addWidget(self._browse_panel)
         layout.addStretch()
+
+        # Hidden until the search bar is focused
+        self._browse_panel.hide()
+        self._search_input.installEventFilter(self)
 
     def _create_category_btn(self, label: str, query: str):
         """Create a category button."""
@@ -195,15 +207,23 @@ class ExploreView(QFrame):
         btn.clicked.connect(lambda: self._search_and_browse(query))
         return btn
 
+    def eventFilter(self, obj, event):
+        """Show the genre/mood browse panel when the search bar is focused."""
+        if obj is self._search_input and event.type() == QEvent.Type.FocusIn:
+            self._browse_panel.show()
+        return super().eventFilter(obj, event)
+
     def _on_search(self):
         """Handle search button click."""
         query = self._search_input.text().strip()
         if query:
+            self._browse_panel.hide()
             self.search_requested.emit(query)
 
     def _search_and_browse(self, query: str):
         """Search for a category/mood."""
         self._search_input.setText(query)
+        self._browse_panel.hide()
         self.search_requested.emit(query)
 
     def set_results(self, tracks: list[dict]):
