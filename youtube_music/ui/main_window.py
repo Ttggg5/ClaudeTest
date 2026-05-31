@@ -310,7 +310,7 @@ class MainWindow(QMainWindow):
         self._library_view.update_queue(tracks, self._queue.current_index)
 
     def _load_recommendations(self):
-        """Load trending songs on startup."""
+        """Search trending songs and show them on the home screen."""
         if not self._api:
             return
 
@@ -319,26 +319,18 @@ class MainWindow(QMainWindow):
             self._rec_worker.quit()
             self._rec_worker.wait()
 
-        def _fetch():
-            results, _ = self._api.search("trending music", order="viewCount")
-            return results
-
-        from PyQt6.QtCore import QThread, pyqtSignal, QObject
-
-        class _RecWorker(QThread):
-            done = pyqtSignal(list)
-
-            def run(self):
-                try:
-                    results = _fetch()
-                    self.done.emit(results)
-                except Exception:
-                    pass
-
-        self._rec_worker = _RecWorker()
-        self._rec_worker.done.connect(self._home_view.set_recommendations)
+        self.statusBar().showMessage("Loading trending songs…")
+        self._rec_worker = SearchWorker(self._api, "trending music")
+        self._rec_worker.results_ready.connect(self._on_recommendations_ready)
+        self._rec_worker.error.connect(
+            lambda msg: self.statusBar().showMessage(f"Couldn't load trending: {msg}")
+        )
         self._rec_worker.start()
         self._show_home()
+
+    def _on_recommendations_ready(self, tracks: list[dict]):
+        self._home_view.set_recommendations(tracks)
+        self.statusBar().showMessage(f"Showing {len(tracks)} trending songs")
 
     # ─────────────────────────────────────────────────── close
 

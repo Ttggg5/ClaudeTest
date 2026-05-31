@@ -189,7 +189,7 @@ class ExploreView(QFrame):
             return
 
         for idx, track in enumerate(tracks[:15]):  # Show top 15 results
-            video_id = track.get("videoId")
+            video_id = track.get("video_id")
             title = track.get("title", "Unknown")
             artist = track.get("channel", "Unknown")
 

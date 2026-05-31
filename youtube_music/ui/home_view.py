@@ -52,7 +52,7 @@ class HomeView(QFrame):
         layout.setSpacing(8)
 
         # Title
-        title = QLabel("Recommended Songs")
+        title = QLabel("Trending Songs")
         title.setStyleSheet("font-size: 16px; font-weight: 600; color: #FFFFFF;")
         layout.addWidget(title)
 
@@ -74,6 +74,7 @@ class HomeView(QFrame):
                 background-color: #282828;
             }
         """)
+        self._list.itemClicked.connect(self._on_item_clicked)
         layout.addWidget(self._list)
 
     def set_recommendations(self, tracks: list[dict]):
@@ -82,7 +83,7 @@ class HomeView(QFrame):
         self._tracks.clear()
 
         for idx, track in enumerate(tracks[:20]):  # Show top 20
-            video_id = track.get("videoId")
+            video_id = track.get("video_id")
             title = track.get("title", "Unknown")
             artist = track.get("channel", "Unknown")
             thumbnail = track.get("thumbnail_url")
@@ -100,9 +101,6 @@ class HomeView(QFrame):
                 loader = _ThumbLoader(video_id, thumbnail)
                 loader.signals.loaded.connect(self._on_thumb_loaded)
                 self._pool.start(loader)
-
-        # Connect item click
-        self._list.itemClicked.connect(self._on_item_clicked)
 
     def _on_item_clicked(self, item: QListWidgetItem):
         """Play track when clicked."""
