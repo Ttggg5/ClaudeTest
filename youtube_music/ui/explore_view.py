@@ -54,6 +54,7 @@ class ExploreView(QFrame):
 
         # ── Search Bar ─────────────────────────────────────────────────
         search_frame = QFrame()
+        self._search_frame = search_frame
         search_frame.setStyleSheet("background-color: #1E1E1E; border-radius: 8px;")
         search_layout = QHBoxLayout(search_frame)
         search_layout.setContentsMargins(12, 8, 12, 8)
@@ -112,13 +113,17 @@ class ExploreView(QFrame):
         """)
         self._results_list.setIconSize(QSize(80, 80))
         self._results_list.itemClicked.connect(self._on_result_clicked)
-        self._results_list.setMaximumHeight(320)
-        layout.addWidget(self._results_list)
+        layout.addWidget(self._results_list, stretch=1)
 
-        # ── Browse panel (genres + moods) — only visible on search focus ──
-        self._browse_panel = QWidget()
+        # ── Browse panel (genres + moods) — floating overlay on focus ──
+        # Parented to self (not added to the layout) so it floats over results.
+        self._browse_panel = QWidget(self)
+        self._browse_panel.setObjectName("browsePanel")
+        self._browse_panel.setStyleSheet(
+            "#browsePanel { background-color: #1A1A1A; border: 1px solid #282828; border-radius: 8px; }"
+        )
         browse_layout = QVBoxLayout(self._browse_panel)
-        browse_layout.setContentsMargins(0, 0, 0, 0)
+        browse_layout.setContentsMargins(12, 12, 12, 12)
         browse_layout.setSpacing(12)
 
         # Browse Genres
@@ -175,10 +180,7 @@ class ExploreView(QFrame):
 
         browse_layout.addLayout(mood_grid)
 
-        layout.addWidget(self._browse_panel)
-        layout.addStretch()
-
-        # Hidden until the search bar is focused
+        # Floating overlay — hidden until the search bar is focused
         self._browse_panel.hide()
         self._search_input.installEventFilter(self)
 
@@ -210,8 +212,32 @@ class ExploreView(QFrame):
     def eventFilter(self, obj, event):
         """Show the genre/mood browse panel when the search bar is focused."""
         if obj is self._search_input and event.type() == QEvent.Type.FocusIn:
-            self._browse_panel.show()
+            self._show_browse_panel()
         return super().eventFilter(obj, event)
+
+    def _show_browse_panel(self):
+        """Position the floating browse panel below the search bar and show it."""
+        self._position_browse_panel()
+        self._browse_panel.show()
+        self._browse_panel.raise_()
+
+    def _position_browse_panel(self):
+        """Place the floating panel just below the search bar, full width."""
+        geo = self._search_frame.geometry()
+        x = geo.x()
+        y = geo.bottom() + 6
+        width = geo.width()
+        height = self._browse_panel.sizeHint().height()
+        # Don't overflow the bottom of the view
+        max_height = self.height() - y - 12
+        if max_height > 0:
+            height = min(height, max_height)
+        self._browse_panel.setGeometry(x, y, width, height)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self._browse_panel.isVisible():
+            self._position_browse_panel()
 
     def _on_search(self):
         """Handle search button click."""
