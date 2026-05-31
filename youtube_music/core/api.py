@@ -24,22 +24,26 @@ class YouTubeAPI:
     def __init__(self, api_key: str):
         self._yt = build("youtube", "v3", developerKey=api_key)
 
-    def search(self, query: str, max_results: int = 20) -> list[dict]:
-        search_resp = (
-            self._yt.search()
-            .list(
-                part="snippet",
-                q=query,
-                type="video",
-                maxResults=max_results,
-                order="relevance",
-            )
-            .execute()
+    def search(
+        self, query: str, max_results: int = 20, page_token: str | None = None
+    ) -> tuple[list[dict], str | None]:
+        """Search videos. Returns (results, next_page_token)."""
+        list_kwargs = dict(
+            part="snippet",
+            q=query,
+            type="video",
+            maxResults=max_results,
+            order="relevance",
         )
+        if page_token:
+            list_kwargs["pageToken"] = page_token
 
+        search_resp = self._yt.search().list(**list_kwargs).execute()
+
+        next_token = search_resp.get("nextPageToken")
         items = search_resp.get("items", [])
         if not items:
-            return []
+            return [], next_token
 
         # Extract video IDs — skip any malformed entries
         video_ids = []
@@ -49,7 +53,7 @@ class YouTubeAPI:
                 video_ids.append(vid)
 
         if not video_ids:
-            return []
+            return [], next_token
 
         # Get duration info for those videos
         details_resp = (
@@ -84,20 +88,25 @@ class YouTubeAPI:
                     "duration": durations.get(vid, 0),
                 }
             )
-        return results
+        return results, next_token
 
 
 class SearchWorker(QThread):
-    results_ready = pyqtSignal(list)
+    # emits (results, next_page_token)
+    results_ready = pyqtSignal(list, object)
     error = pyqtSignal(str)
 
-    def __init__(self, api: YouTubeAPI, query: str):
+    def __init__(self, api: YouTubeAPI, query: str, page_token: str | None = None):
         super().__init__()
         self._api = api
         self._query = query
+        self._page_token = page_token
 
     def run(self):
         try:
-            self.results_ready.emit(self._api.search(self._query))
+            results, next_token = self._api.search(
+                self._query, page_token=self._page_token
+            )
+            self.results_ready.emit(results, next_token)
         except Exception as exc:
             self.error.emit(str(exc))

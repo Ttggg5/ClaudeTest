@@ -30,6 +30,9 @@ class MainWindow(QMainWindow):
         self._current_track = None
         self._rec_worker = None
         self._search_worker = None
+        self._search_query = None
+        self._search_next_token = None
+        self._loading_more = False
 
         try:
             self._player = AudioPlayer()
@@ -125,6 +128,7 @@ class MainWindow(QMainWindow):
 
         # explore view → search
         self._explore_view.search_requested.connect(self._on_explore_search)
+        self._explore_view.load_more.connect(self._on_load_more)
         self._explore_view.play_track.connect(self._play_track)
 
         # queue panel → this window
@@ -168,10 +172,19 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage("Library - Your playlists and queue")
 
     def _on_explore_search(self, query: str):
-        """Handle search from Explore view."""
+        """Handle a new search from Explore view (first page)."""
         if not self._api:
             self.statusBar().showMessage("Configure API key first")
             return
+
+        # Cancel any in-flight search
+        if self._search_worker and self._search_worker.isRunning():
+            self._search_worker.quit()
+            self._search_worker.wait()
+
+        self._search_query = query
+        self._search_next_token = None
+        self._loading_more = False
 
         self.statusBar().showMessage(f'Searching for "{query}"...')
         self._search_worker = SearchWorker(self._api, query)
@@ -179,13 +192,39 @@ class MainWindow(QMainWindow):
         self._search_worker.error.connect(self._on_search_error)
         self._search_worker.start()
 
-    def _on_search_results(self, tracks: list[dict]):
-        """Display search results in Explore view."""
-        self._explore_view.set_results(tracks)
+    def _on_load_more(self):
+        """Load the next page of search results (infinite scroll)."""
+        if not self._api or not self._search_query or not self._search_next_token:
+            return
+        if self._loading_more:
+            return
+        if self._search_worker and self._search_worker.isRunning():
+            return
+
+        self._loading_more = True
+        self.statusBar().showMessage("Loading more results…")
+        self._search_worker = SearchWorker(
+            self._api, self._search_query, page_token=self._search_next_token
+        )
+        self._search_worker.results_ready.connect(self._on_more_results)
+        self._search_worker.error.connect(self._on_search_error)
+        self._search_worker.start()
+
+    def _on_search_results(self, tracks: list[dict], next_token):
+        """Display first-page search results in Explore view."""
+        self._search_next_token = next_token
+        self._explore_view.set_results(tracks, has_more=bool(next_token))
         self.statusBar().showMessage(f"Found {len(tracks)} results")
+
+    def _on_more_results(self, tracks: list[dict], next_token):
+        """Append next-page results in Explore view."""
+        self._search_next_token = next_token
+        self._loading_more = False
+        self._explore_view.append_results(tracks, has_more=bool(next_token))
 
     def _on_search_error(self, msg: str):
         """Handle search error."""
+        self._loading_more = False
         self.statusBar().showMessage(f"Search error: {msg}")
 
     # ─────────────────────────────────────────────────── api init
@@ -328,7 +367,7 @@ class MainWindow(QMainWindow):
         self._rec_worker.start()
         self._show_home()
 
-    def _on_recommendations_ready(self, tracks: list[dict]):
+    def _on_recommendations_ready(self, tracks: list[dict], next_token=None):
         self._home_view.set_recommendations(tracks)
         self.statusBar().showMessage(f"Showing {len(tracks)} trending songs")
 

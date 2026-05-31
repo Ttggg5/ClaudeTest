@@ -36,6 +36,7 @@ class ExploreView(QFrame):
     """Explore view with search, categories, and mood browsing."""
 
     search_requested = pyqtSignal(str)  # Emits search query
+    load_more = pyqtSignal()            # Emits when scrolled near the bottom
     play_track = pyqtSignal(dict)
 
     def __init__(self, parent=None):
@@ -44,6 +45,7 @@ class ExploreView(QFrame):
         self.setMinimumHeight(200)
         self._tracks = {}
         self._items = {}
+        self._has_more = False
         self._pool = QThreadPool.globalInstance()
         self._build()
 
@@ -113,6 +115,7 @@ class ExploreView(QFrame):
         """)
         self._results_list.setIconSize(QSize(80, 80))
         self._results_list.itemClicked.connect(self._on_result_clicked)
+        self._results_list.verticalScrollBar().valueChanged.connect(self._on_scroll)
         layout.addWidget(self._results_list, stretch=1)
 
         # ── Browse panel (genres + moods) — floating overlay on focus ──
@@ -252,11 +255,12 @@ class ExploreView(QFrame):
         self._browse_panel.hide()
         self.search_requested.emit(query)
 
-    def set_results(self, tracks: list[dict]):
-        """Display search results."""
+    def set_results(self, tracks: list[dict], has_more: bool = False):
+        """Display a fresh set of search results (first page)."""
         self._results_list.clear()
         self._tracks.clear()
         self._items.clear()
+        self._has_more = has_more
 
         if not tracks:
             item = QListWidgetItem("No results found")
@@ -264,7 +268,15 @@ class ExploreView(QFrame):
             self._results_list.addItem(item)
             return
 
-        for idx, track in enumerate(tracks[:15]):  # Show top 15 results
+        self._append_tracks(tracks)
+
+    def append_results(self, tracks: list[dict], has_more: bool = False):
+        """Append the next page of results (infinite scroll)."""
+        self._has_more = has_more
+        self._append_tracks(tracks)
+
+    def _append_tracks(self, tracks: list[dict]):
+        for track in tracks:
             video_id = track.get("video_id")
             title = track.get("title", "Unknown")
             artist = track.get("channel", "Unknown")
@@ -282,6 +294,15 @@ class ExploreView(QFrame):
                 loader = _ThumbLoader(video_id, thumbnail)
                 loader.signals.loaded.connect(self._on_thumb_loaded)
                 self._pool.start(loader)
+
+    def _on_scroll(self, value: int):
+        """Request more results when scrolled near the bottom."""
+        if not self._has_more:
+            return
+        bar = self._results_list.verticalScrollBar()
+        if bar.maximum() > 0 and value >= bar.maximum() * 0.9:
+            self._has_more = False  # guard against repeat emits until next page arrives
+            self.load_more.emit()
 
     def _on_thumb_loaded(self, video_id: str, px: QPixmap):
         """Set the loaded thumbnail on the matching result item."""
