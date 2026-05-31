@@ -195,7 +195,6 @@ class MainWindow(QMainWindow):
         key = conf.get("api_key", "")
         if key:
             self._api = YouTubeAPI(key)
-            self._search_panel.set_api(self._api)
             self._load_recommendations()
         else:
             self.statusBar().showMessage("No API key — open Settings to add one.")
@@ -206,7 +205,6 @@ class MainWindow(QMainWindow):
         if dlg.exec():
             key = dlg.get_key()
             self._api = YouTubeAPI(key)
-            self._search_panel.set_api(self._api)
             self._load_recommendations()
             self.statusBar().showMessage("API key saved.")
 
