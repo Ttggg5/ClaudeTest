@@ -1,9 +1,35 @@
+import requests
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QGridLayout,
     QPushButton, QLineEdit, QListWidget, QListWidgetItem
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QSize
-from PyQt6.QtGui import QPixmap
+from PyQt6.QtCore import Qt, pyqtSignal, QSize, QRunnable, QThreadPool, QObject
+from PyQt6.QtGui import QPixmap, QIcon
+
+
+class _ThumbSignals(QObject):
+    loaded = pyqtSignal(str, QPixmap)
+
+
+class _ThumbLoader(QRunnable):
+    def __init__(self, video_id: str, url: str):
+        super().__init__()
+        self.video_id = video_id
+        self.url = url
+        self.signals = _ThumbSignals()
+
+    def run(self):
+        try:
+            data = requests.get(self.url, timeout=8).content
+            px = QPixmap()
+            px.loadFromData(data)
+            if not px.isNull():
+                self.signals.loaded.emit(self.video_id, px.scaled(
+                    80, 80, Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                ))
+        except Exception:
+            pass
 
 
 class ExploreView(QFrame):
@@ -17,6 +43,8 @@ class ExploreView(QFrame):
         self.setObjectName("card")
         self.setMinimumHeight(200)
         self._tracks = {}
+        self._items = {}
+        self._pool = QThreadPool.globalInstance()
         self._build()
 
     def _build(self):
@@ -82,8 +110,9 @@ class ExploreView(QFrame):
                 background-color: #282828;
             }
         """)
+        self._results_list.setIconSize(QSize(80, 80))
         self._results_list.itemClicked.connect(self._on_result_clicked)
-        self._results_list.setMaximumHeight(150)
+        self._results_list.setMaximumHeight(320)
         layout.addWidget(self._results_list)
 
         # ── Browse Genres ──────────────────────────────────────────────
@@ -181,6 +210,7 @@ class ExploreView(QFrame):
         """Display search results."""
         self._results_list.clear()
         self._tracks.clear()
+        self._items.clear()
 
         if not tracks:
             item = QListWidgetItem("No results found")
@@ -192,12 +222,26 @@ class ExploreView(QFrame):
             video_id = track.get("video_id")
             title = track.get("title", "Unknown")
             artist = track.get("channel", "Unknown")
+            thumbnail = track.get("thumbnail_url")
 
             text = f"{title}\n    {artist}"
             item = QListWidgetItem(text)
             item.setData(1001, track)  # Store track data
             self._results_list.addItem(item)
             self._tracks[video_id] = track
+            self._items[video_id] = item
+
+            # Load thumbnail
+            if thumbnail:
+                loader = _ThumbLoader(video_id, thumbnail)
+                loader.signals.loaded.connect(self._on_thumb_loaded)
+                self._pool.start(loader)
+
+    def _on_thumb_loaded(self, video_id: str, px: QPixmap):
+        """Set the loaded thumbnail on the matching result item."""
+        item = self._items.get(video_id)
+        if item is not None:
+            item.setIcon(QIcon(px))
 
     def _on_result_clicked(self, item: QListWidgetItem):
         """Play clicked track."""

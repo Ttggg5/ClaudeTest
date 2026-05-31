@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QListWidget,
     QListWidgetItem, QPushButton
 )
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from PyQt6.QtGui import QPixmap, QIcon
 import requests
 from PyQt6.QtCore import QRunnable, QThreadPool, QObject
@@ -26,7 +26,7 @@ class _ThumbLoader(QRunnable):
             px.loadFromData(data)
             if not px.isNull():
                 self.signals.loaded.emit(self.video_id, px.scaled(
-                    40, 40, Qt.AspectRatioMode.KeepAspectRatio,
+                    80, 80, Qt.AspectRatioMode.KeepAspectRatio,
                     Qt.TransformationMode.SmoothTransformation,
                 ))
         except Exception:
@@ -74,6 +74,7 @@ class HomeView(QFrame):
                 background-color: #282828;
             }
         """)
+        self._list.setIconSize(QSize(80, 80))
         self._list.itemClicked.connect(self._on_item_clicked)
         layout.addWidget(self._list)
 
