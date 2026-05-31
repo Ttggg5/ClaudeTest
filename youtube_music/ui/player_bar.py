@@ -43,7 +43,7 @@ class PlayerBar(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("playerBar")
-        self.setFixedHeight(100)
+        self.setFixedHeight(150)
         self._is_seeking = False
         self._duration = 0
         self._pool = QThreadPool.globalInstance()

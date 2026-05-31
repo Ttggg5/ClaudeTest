@@ -33,7 +33,7 @@ if IS_DARK_MODE:
     COLOR_PRIMARY = "#FF0000"           # YouTube Red
     COLOR_SECONDARY = "#E91E63"         # Pink (YouTube Music secondary)
     COLOR_TERTIARY = "#00BCD4"          # Cyan
-    COLOR_BACKGROUND = "#121212"        # YouTube Music dark background
+    COLOR_BACKGROUND = "#1E1E1E"        # YouTube Music dark background
     COLOR_SURFACE = "#1E1E1E"           # Elevated surface
     COLOR_SURFACE_DIM = "#181818"       # Darker surface
     COLOR_ON_SURFACE = "#FFFFFF"        # White text (more contrast)
@@ -183,10 +183,10 @@ QPushButton#playBtn {{
     padding: 8px;
     color: #ffffff;
     font-size: 22px;
-    min-width: 56px;
-    max-width: 56px;
-    min-height: 56px;
-    max-height: 56px;
+    min-width: 46px;
+    max-width: 46px;
+    min-height: 46px;
+    max-height: 46px;
     font-weight: bold;
 }}
 QPushButton#playBtn:hover {{
